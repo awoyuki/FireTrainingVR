@@ -7,8 +7,6 @@
 #include "GripScripts/GS_GunTools.h"
 #include "VRGlobalSettings.generated.h"
 
-class UGrippableSkeletalMeshComponent;
-
 
 /*namespace ControllerProfileStatics
 {
@@ -119,14 +117,6 @@ class VREXPANSIONPLUGIN_API UVRGlobalSettings : public UObject
 public:
 	UVRGlobalSettings(const FObjectInitializer& ObjectInitializer);
 
-	// The skeletal mesh component class to use for grippable characters
-	// If you set this to none it will fall back to the default grippable class so that it doesn't brick your project
-	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category = "Misc")
-		TSubclassOf<class UGrippableSkeletalMeshComponent> DefaultGrippableCharacterMeshComponentClass;
-
-	// Using a getter to stay safe from bricking peoples projects if they set it to none somehow
-	static TSubclassOf<class UGrippableSkeletalMeshComponent> GetDefaultGrippableCharacterMeshComponentClass();
-
 	// A scaler to apply to constraint drives when chaos is active
 	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category = "ChaosPhysics")
 		float LinearDriveStiffnessScale;
@@ -143,28 +133,9 @@ public:
 	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category = "ChaosPhysics")
 		float AngularDriveDampingScale;
 
-	// If we should lerp hybrid with sweep grips out of collision
-	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category = "HybridWithSweepLerp")
-		bool bLerpHybridWithSweepGrips;
-
-	// If true we only lerp the rotation of hybrid grips
-	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category = "HybridWithSweepLerp")
-		bool bOnlyLerpHybridRotation;
-
-	// If true we calculate a speed off of the lerp duration and TInterp using it
-	// The Hybrid with sweep lerp duration then is used to divide 1.0f (x10) to get the speed (lower duration = faster movement)
-	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category = "HybridWithSweepLerp")
-		bool bHybridWithSweepUseDistanceBasedLerp;
-
-	// Duration that the typical lerp takes, for the distance based lerp this is turned into a speed value based off of 1.0f / it
-	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category = "HybridWithSweepLerp")
-		float HybridWithSweepLerpDuration;
 
 	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category = "GlobalLerpToHand")
 		bool bUseGlobalLerpToHand;
-
-	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category = "GlobalLerpToHand")
-		bool bSkipLerpToHandIfHeld;
 
 	// If the initial grip distance is closer than this value then the lerping will not be performed.
 	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category = "GlobalLerpToHand")

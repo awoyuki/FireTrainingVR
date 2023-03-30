@@ -228,9 +228,8 @@ void UVREPhysicalAnimationComponent::UpdateWeldedBoneDriver(float DeltaTime)
 
 			if (FBodyInstance* ParentBody = (ParentBodyIdx == INDEX_NONE ? nullptr : SkeleMesh->Bodies[ParentBodyIdx]))
 			{
-				// Allow it to run even when not simulating physics, if we have a welded root then it needs to animate anyway
-				//if (!ParentBody->IsInstanceSimulatingPhysics() && !ParentBody->WeldParent)
-				//	return;
+				if (!ParentBody->IsInstanceSimulatingPhysics() && !ParentBody->WeldParent)
+					return;
 
 				FPhysicsActorHandle& ActorHandle = ParentBody->WeldParent ? ParentBody->WeldParent->GetPhysicsActorHandle() : ParentBody->GetPhysicsActorHandle();
 

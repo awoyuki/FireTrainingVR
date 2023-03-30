@@ -54,9 +54,9 @@ const float VERTICAL_SLOPE_NORMAL_Z = 0.001f; // Slope is vertical if Abs(Normal
 
 // Defines for build configs
 #if DO_CHECK && !UE_BUILD_SHIPPING // Disable even if checks in shipping are enabled.
-#define devCodeVR( Code )		checkCode( Code )
+#define devCode( Code )		checkCode( Code )
 #else
-#define devCodeVR(...)
+#define devCode(...)
 #endif
 
 // Statics
@@ -457,16 +457,12 @@ void UVRCharacterMovementComponent::ServerMove_PerformMovement(const FCharacterN
 	FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
 	check(ServerData);
 
-	// Convert to our stored move data array
-	const FVRCharacterNetworkMoveData* MoveDataVR = (const FVRCharacterNetworkMoveData*)&MoveData;
-
 	if (MovementMode == MOVE_Custom && CustomMovementMode == (uint8)EVRCustomMovementMode::VRMOVE_Seated)
 	{
 		return;
 	}
-	else if (bJustUnseated && MoveDataVR->ReplicatedMovementMode != EVRConjoinedMovementModes::C_VRMOVE_Seated)
-	{
-		// If the client isn't still registered as seated then we accept this first change of movement and go	
+	else if (bJustUnseated)
+	{	
 		ServerData->CurrentClientTimeStamp = MoveData.TimeStamp;
 		bAutoAcceptPacket = true;
 		bJustUnseated = false;
@@ -493,6 +489,10 @@ void UVRCharacterMovementComponent::ServerMove_PerformMovement(const FCharacterN
 		return;
 	}
 
+
+	// Convert to our stored move data array
+	const FVRCharacterNetworkMoveData* MoveDataVR = (const FVRCharacterNetworkMoveData*)&MoveData;
+
 	// Scope these, they nest with Outer references so it should work fine, this keeps the update rotation and move autonomous from double updating the char
 	FVRCharacterScopedMovementUpdate ScopedMovementUpdate(UpdatedComponent, bEnableScopedMovementUpdates ? EScopedUpdate::DeferredUpdates : EScopedUpdate::ImmediateUpdates);
 
@@ -508,18 +508,7 @@ void UVRCharacterMovementComponent::ServerMove_PerformMovement(const FCharacterN
 	}
 
 	const UWorld* MyWorld = GetWorld();
-	/*const*/ float DeltaTime = 0.0f;
-
-	// If we are auto accepting this packet, then accept it and use the maximum delta time as we don't know how long it has actually been since
-	// The last valid update
-	if (bAutoAcceptPacket)
-	{
-		DeltaTime = ServerData->MaxMoveDeltaTime * CharacterOwner->GetActorTimeDilation(*MyWorld);
-	}
-	else
-	{
-		DeltaTime = ServerData->GetServerMoveDeltaTime(ClientTimeStamp, CharacterOwner->GetActorTimeDilation(*MyWorld));
-	}
+	const float DeltaTime = ServerData->GetServerMoveDeltaTime(ClientTimeStamp, CharacterOwner->GetActorTimeDilation(*MyWorld));
 
 	if (DeltaTime > 0.f)
 	{
@@ -853,7 +842,7 @@ void UVRCharacterMovementComponent::PhysWalking(float deltaTime, int32 Iteration
 		return;
 	}
 
-	devCodeVR(ensureMsgf(!Velocity.ContainsNaN(), TEXT("PhysWalking: Velocity contains NaN before Iteration (%s)\n%s"), *GetPathNameSafe(this), *Velocity.ToString()));
+	devCode(ensureMsgf(!Velocity.ContainsNaN(), TEXT("PhysWalking: Velocity contains NaN before Iteration (%s)\n%s"), *GetPathNameSafe(this), *Velocity.ToString()));
 
 	bJustTeleported = false;
 	bool bCheckedFall = false;
@@ -893,13 +882,13 @@ void UVRCharacterMovementComponent::PhysWalking(float deltaTime, int32 Iteration
 		if (!HasAnimRootMotion() && !CurrentRootMotion.HasOverrideVelocity())
 		{
 			CalcVelocity(timeTick, GroundFriction, false, GetMaxBrakingDeceleration());
-			devCodeVR(ensureMsgf(!Velocity.ContainsNaN(), TEXT("PhysWalking: Velocity contains NaN after CalcVelocity (%s)\n%s"), *GetPathNameSafe(this), *Velocity.ToString()));
+			devCode(ensureMsgf(!Velocity.ContainsNaN(), TEXT("PhysWalking: Velocity contains NaN after CalcVelocity (%s)\n%s"), *GetPathNameSafe(this), *Velocity.ToString()));
 		}
 
 		ApplyRootMotionToVelocity(timeTick);
 		ApplyVRMotionToVelocity(deltaTime);//timeTick);
 
-		devCodeVR(ensureMsgf(!Velocity.ContainsNaN(), TEXT("PhysWalking: Velocity contains NaN after Root Motion application (%s)\n%s"), *GetPathNameSafe(this), *Velocity.ToString()));
+		devCode(ensureMsgf(!Velocity.ContainsNaN(), TEXT("PhysWalking: Velocity contains NaN after Root Motion application (%s)\n%s"), *GetPathNameSafe(this), *Velocity.ToString()));
 
 		if (IsFalling())
 		{
@@ -1373,24 +1362,7 @@ UVRCharacterMovementComponent::UVRCharacterMovementComponent(const FObjectInitia
 	//WallRepulsionMultiplier = 0.01f;
 	bUseClientControlRotation = false;
 	bAllowMovementMerging = true;
-	bRunClientCorrectionToHMD = false;
 	bRequestedMoveUseAcceleration = false;
-}
-
-void UVRCharacterMovementComponent::OnRegister()
-{
-	Super::OnRegister();
-
-	// they enforce linear usually
-	// Force exponential smoothing for replays as it works best for our vr stuff
-	const UWorld* MyWorld = GetWorld();
-	const bool bIsReplay = (MyWorld && MyWorld->IsPlayingReplay());
-
-	if (bIsReplay)
-	{
-		//NetworkSmoothingMode = ENetworkSmoothingMode::Linear;
-		NetworkSmoothingMode = ENetworkSmoothingMode::Exponential;
-	}
 }
 
 
@@ -2988,14 +2960,14 @@ void UVRCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterat
 
 	// Ensure velocity is horizontal.
 	MaintainHorizontalGroundVelocity();
-	devCodeVR(ensureMsgf(!Velocity.ContainsNaN(), TEXT("PhysNavWalking: Velocity contains NaN before CalcVelocity (%s)\n%s"), *GetPathNameSafe(this), *Velocity.ToString()));
+	devCode(ensureMsgf(!Velocity.ContainsNaN(), TEXT("PhysNavWalking: Velocity contains NaN before CalcVelocity (%s)\n%s"), *GetPathNameSafe(this), *Velocity.ToString()));
 
 	//bound acceleration
 	Acceleration.Z = 0.f;
 	//if (!HasRootMotion())
 	//{
 		CalcVelocity(deltaTime, GroundFriction, false, BrakingDecelerationWalking);
-		devCodeVR(ensureMsgf(!Velocity.ContainsNaN(), TEXT("PhysNavWalking: Velocity contains NaN after CalcVelocity (%s)\n%s"), *GetPathNameSafe(this), *Velocity.ToString()));
+		devCode(ensureMsgf(!Velocity.ContainsNaN(), TEXT("PhysNavWalking: Velocity contains NaN after CalcVelocity (%s)\n%s"), *GetPathNameSafe(this), *Velocity.ToString()));
 	//}
 
 	ApplyRootMotionToVelocity(deltaTime);
@@ -3780,7 +3752,7 @@ void UVRCharacterMovementComponent::ClientAdjustPositionVR_Implementation
 		return;
 	}
 
-	if (/*!bRunClientCorrectionToHMD && */!bUseClientControlRotation)
+	if (!bUseClientControlRotation)
 	{
 		float YawValue = FRotator::DecompressAxisFromShort(NewYaw);
 		// Trust the server's control yaw
@@ -3826,24 +3798,8 @@ void UVRCharacterMovementComponent::ClientAdjustPositionVR_Implementation
 	// Trust the server's positioning.
 	if (UpdatedComponent)
 	{
-		if (bRunClientCorrectionToHMD && BaseVRCharacterOwner)
-		{
-			/*if (!bUseClientControlRotation)
-			{
-				float YawValue = FRotator::DecompressAxisFromShort(NewYaw);
-				BaseVRCharacterOwner->SetActorLocationAndRotationVR(WorldShiftedNewLocation, FRotator(0.0f, YawValue, 0.0f), true, true, true);
-			}
-			else*/
-			{
-				BaseVRCharacterOwner->SetActorLocationVR(WorldShiftedNewLocation, true);
-			}
-		}
-		else
-		{
-			UpdatedComponent->SetWorldLocation(WorldShiftedNewLocation, false, nullptr, ETeleportType::TeleportPhysics);
-		}
+		UpdatedComponent->SetWorldLocation(WorldShiftedNewLocation, false, nullptr, ETeleportType::TeleportPhysics);
 	}
-
 	Velocity = NewVelocity;
 
 	// Trust the server's movement mode
@@ -3956,7 +3912,7 @@ void UVRCharacterMovementComponent::ServerMoveHandleClientErrorVR(float ClientTi
 		}
 	}
 
-	FNetworkPredictionData_Server_VRCharacter* ServerData = ((FNetworkPredictionData_Server_VRCharacter*)GetPredictionData_Server_Character());
+	FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
 	check(ServerData);
 
 	// Don't prevent more recent updates from being sent if received this frame.
@@ -4016,44 +3972,14 @@ void UVRCharacterMovementComponent::ServerMoveHandleClientErrorVR(float ClientTi
 		ServerData->PendingAdjustment.NewVel = Velocity;
 		ServerData->PendingAdjustment.NewBase = MovementBase;
 		ServerData->PendingAdjustment.NewBaseBoneName = CharacterOwner->GetBasedMovement().BoneName;
-		//ServerData->PendingAdjustment.NewLoc = FRepMovement::RebaseOntoZeroOrigin(UpdatedComponent->GetComponentLocation(), this);
+		ServerData->PendingAdjustment.NewLoc = FRepMovement::RebaseOntoZeroOrigin(UpdatedComponent->GetComponentLocation(), this);
 		ServerData->PendingAdjustment.NewRot = UpdatedComponent->GetComponentRotation();
-
-		if (bRunClientCorrectionToHMD && BaseVRCharacterOwner)
-		{
-			FVector CapsuleLoc = BaseVRCharacterOwner->GetVRLocation();
-			CapsuleLoc.Z = UpdatedComponent->GetComponentLocation().Z;
-			ServerData->PendingAdjustment.NewLoc = FRepMovement::RebaseOntoZeroOrigin(CapsuleLoc, this);
-			//ServerData->PendingAdjustment.NewRot = BaseVRCharacterOwner->GetVRRotation();
-		}
-		else
-		{
-			ServerData->PendingAdjustment.NewLoc = FRepMovement::RebaseOntoZeroOrigin(UpdatedComponent->GetComponentLocation(), this);
-			//ServerData->PendingAdjustment.NewRot = UpdatedComponent->GetComponentRotation();
-		}
 
 		ServerData->PendingAdjustment.bBaseRelativePosition = MovementBaseUtility::UseRelativeLocation(MovementBase);
 		if (ServerData->PendingAdjustment.bBaseRelativePosition)
 		{
 			// Relative location
-			if (bRunClientCorrectionToHMD && BaseVRCharacterOwner)
-			{
-				FBasedMovementInfo BaseInfo = CharacterOwner->GetBasedMovement();
-				FVector BaseLocation;
-				FQuat BaseQuat;
-				if (!MovementBaseUtility::GetMovementBaseTransform(BaseInfo.MovementBase, BaseInfo.BoneName, BaseLocation, BaseQuat))
-				{
-					ServerData->PendingAdjustment.NewLoc = CharacterOwner->GetBasedMovement().Location;
-				}
-				else
-				{
-					ServerData->PendingAdjustment.NewLoc = FTransform(BaseQuat, BaseLocation, FVector(1.0f)).InverseTransformPosition(ServerData->PendingAdjustment.NewLoc);
-				}
-			}
-			else
-			{
-				ServerData->PendingAdjustment.NewLoc = CharacterOwner->GetBasedMovement().Location;
-			}
+			ServerData->PendingAdjustment.NewLoc = CharacterOwner->GetBasedMovement().Location;
 
 			// TODO: this could be a relative rotation, but all client corrections ignore rotation right now except the root motion one, which would need to be updated.
 			//ServerData->PendingAdjustment.NewRot = CharacterOwner->GetBasedMovement().Rotation;

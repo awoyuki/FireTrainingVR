@@ -168,7 +168,6 @@ public:
 // Event thrown when we the melee weapon becomes lodged
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_SevenParams(FVROnMeleeShouldLodgeSignature, FBPLodgeComponentInfo, LogComponent, AActor *, OtherActor, UPrimitiveComponent *, OtherComp, ECollisionChannel, OtherCompCollisionChannel, FBPHitSurfaceProperties, HitSurfaceProperties, FVector, NormalImpulse, const FHitResult&, Hit);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_SevenParams(FVROnMeleeOnHit, FBPLodgeComponentInfo, LogComponent, AActor*, OtherActor, UPrimitiveComponent*, OtherComp, ECollisionChannel, OtherCompCollisionChannel, FBPHitSurfaceProperties, HitSurfaceProperties, FVector, NormalImpulse, const FHitResult&, Hit);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FVROnMeleeInvalidHitSignature, AActor*, OtherActor, UPrimitiveComponent*, OtherComp, FVector, NormalImpulse, const FHitResult&, Hit);
 
 /**
 * A Melee grip script that hands multi hand interactions and penetration notifications*
@@ -183,7 +182,7 @@ public:
 	UGS_Melee(const FObjectInitializer& ObjectInitializer);
 
 	UFUNCTION()
-	virtual void OnLodgeHitCallback(AActor* SelfActor, AActor* OtherActor, FVector NormalImpulse, const FHitResult& Hit);
+	void OnLodgeHitCallback(AActor* SelfActor, AActor* OtherActor, FVector NormalImpulse, const FHitResult& Hit);
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon Settings")
 		void SetIsLodged(bool IsLodged, UPrimitiveComponent * LodgeComponent)
@@ -200,14 +199,9 @@ public:
 	// Thrown if we should lodge into a hit object
 	UPROPERTY(BlueprintAssignable, Category = "Melee|Lodging")
 		FVROnMeleeShouldLodgeSignature OnShouldLodgeInObject;
-	
-	// Thrown if we hit something we can damage
+
 	UPROPERTY(BlueprintAssignable, Category = "Melee|Hit")
 		FVROnMeleeOnHit OnMeleeHit;
-
-	// Fired when a hit is invalid (hit something that isn't flagged for damage or stabbing or was below the damage or stab threshold)
-	UPROPERTY(BlueprintAssignable, Category = "Melee|Hit")
-		FVROnMeleeInvalidHitSignature OnMeleeInvalidHit;
 
 	// Always tick for penetration
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Melee|Lodging")
@@ -259,6 +253,11 @@ public:
 	FVector LastRelativePos;
 	FVector RelativeBetweenGripsCenterPos;
 
+	// If true then we won't bind to the objects mass updates, we don't expect thing to attach to us
+	// This is a perf savings when possible
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Settings")
+		bool bSkipGripMassChecks;
+
 	// When true, will auto set the primary and secondary hands by the WeaponRootOrientationComponents X Axis distance.
 	// Smallest value along the X Axis will be considered the primary hand.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Settings")
@@ -279,10 +278,6 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon Settings")
 	FBPGripPair SecondaryHand;
-
-	// If true we will use the primary hands grip settings when we only have one hand gripping instead of the objects VRGripInterfaces settings
-	UPROPERTY(BlueprintReadOnly, Category = "Weapon Settings")
-		bool bUsePrimaryHandSettingsWithOneHand;
 
 	// To select the type of com setting to use
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Settings")

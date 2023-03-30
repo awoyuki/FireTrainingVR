@@ -641,12 +641,9 @@ void AGrippableActor::Server_GetClientAuthReplication_Implementation(const FRepM
 {
 	if (!VRGripInterfaceSettings.bIsHeld)
 	{
-		if (!newMovement.Location.ContainsNaN() && !newMovement.Rotation.ContainsNaN())
-		{
-			FRepMovement& MovementRep = GetReplicatedMovement_Mutable();
-			newMovement.CopyTo(MovementRep);
-			OnRep_ReplicatedMovement();
-		}
+		FRepMovement& MovementRep = GetReplicatedMovement_Mutable();
+		newMovement.CopyTo(MovementRep);
+		OnRep_ReplicatedMovement();
 	}
 }
 

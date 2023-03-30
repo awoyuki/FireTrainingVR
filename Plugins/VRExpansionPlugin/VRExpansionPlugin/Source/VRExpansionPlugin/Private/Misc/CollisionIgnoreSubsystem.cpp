@@ -68,9 +68,6 @@ void UCollisionIgnoreSubsystem::CheckActiveFilters()
 #elif PHYSICS_INTERFACE_PHYSX
 			if (PxScene* PScene = PhysScene->GetPxScene())
 			{
-				// Lock the scene since we are getting Callbacks
-				PScene->lockWrite();
-
 				if (FCCDContactModifyCallbackVR* ContactCallback = (FCCDContactModifyCallbackVR*)PScene->getCCDContactModifyCallback())
 				{
 					FRWScopeLock(ContactCallback->RWAccessLock, FRWScopeLockType::SLT_Write);
@@ -108,9 +105,6 @@ void UCollisionIgnoreSubsystem::CheckActiveFilters()
 
 					//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("IGNORE: %i"), ContactCallback->ContactsToIgnore.Num()));
 				}
-
-				// UnLock the scene since we are getting Callbacks
-				PScene->unlockWrite();
 			}
 #endif
 		}
@@ -159,9 +153,6 @@ void UCollisionIgnoreSubsystem::RemoveComponentCollisionIgnoreState(UPrimitiveCo
 #elif PHYSICS_INTERFACE_PHYSX
 			if (PxScene* PScene = PhysScene->GetPxScene())
 			{
-				// Lock the scene since we are getting Callbacks
-				PScene->lockWrite();
-
 				if (FCCDContactModifyCallbackVR* ContactCallback = (FCCDContactModifyCallbackVR*)PScene->getCCDContactModifyCallback())
 				{
 					FRWScopeLock(ContactCallback->RWAccessLock, FRWScopeLockType::SLT_Write);
@@ -187,9 +178,6 @@ void UCollisionIgnoreSubsystem::RemoveComponentCollisionIgnoreState(UPrimitiveCo
 						}
 					}
 				}
-
-				// UnLock the scene since we are getting Callbacks
-				PScene->unlockWrite();
 			}
 #endif
 		}
@@ -225,37 +213,9 @@ bool UCollisionIgnoreSubsystem::IsComponentIgnoringCollision(UPrimitiveComponent
 	return false;
 }
 
-bool UCollisionIgnoreSubsystem::AreComponentsIgnoringCollisions(UPrimitiveComponent* Prim1, UPrimitiveComponent* Prim2)
-{
-
-	if (!Prim1 || !Prim2)
-		return false;
-
-	TSet<FCollisionPrimPair> CurrentKeys;
-	int numKeys = CollisionTrackedPairs.GetKeys(CurrentKeys);
-
-	FCollisionPrimPair SearchPair;
-	SearchPair.Prim1 = Prim1;
-	SearchPair.Prim2 = Prim2;
-
-	// This checks if we exist already as well as provides an index
-	if (FCollisionPrimPair* ExistingPair = CurrentKeys.Find(SearchPair))
-	{
-		// These components are ignoring collision
-		return true;
-	}
-
-	return false;
-}
-
 void UCollisionIgnoreSubsystem::InitiateIgnore()
 {
 
-}
-
-bool UCollisionIgnoreSubsystem::HasCollisionIgnorePairs()
-{
-	return CollisionTrackedPairs.Num() > 0;
 }
 
 void UCollisionIgnoreSubsystem::SetComponentCollisionIgnoreState(bool bIterateChildren1, bool bIterateChildren2, UPrimitiveComponent* Prim1, FName OptionalBoneName1, UPrimitiveComponent* Prim2, FName OptionalBoneName2, bool bIgnoreCollision, bool bCheckFilters)
@@ -263,12 +223,6 @@ void UCollisionIgnoreSubsystem::SetComponentCollisionIgnoreState(bool bIterateCh
 	if (!Prim1 || !Prim2)
 	{
 		UE_LOG(VRE_CollisionIgnoreLog, Error, TEXT("Set Objects Ignore Collision called with invalid object(s)!!"));
-		return;
-	}
-
-	if (Prim1->GetCollisionEnabled() == ECollisionEnabled::NoCollision || Prim2->GetCollisionEnabled() == ECollisionEnabled::NoCollision)
-	{
-		UE_LOG(VRE_CollisionIgnoreLog, Error, TEXT("Set Objects Ignore Collision called with one or more objects with no collision!! %s, %s"), *Prim1->GetName(), *Prim2->GetName());
 		return;
 	}
 
@@ -474,9 +428,6 @@ void UCollisionIgnoreSubsystem::SetComponentCollisionIgnoreState(bool bIterateCh
 #elif PHYSICS_INTERFACE_PHYSX
 					if (PxScene* PScene = PhysScene->GetPxScene())
 					{
-						// Lock the scene since we are getting Callbacks
-						PScene->lockWrite();
-
 						if (FCCDContactModifyCallbackVR* ContactCallback = (FCCDContactModifyCallbackVR*)PScene->getCCDContactModifyCallback())
 						{
 							FRWScopeLock(ContactCallback->RWAccessLock, FRWScopeLockType::SLT_Write);
@@ -577,9 +528,6 @@ void UCollisionIgnoreSubsystem::SetComponentCollisionIgnoreState(bool bIterateCh
 								}
 							}
 						}
-
-						// UnLock the scene since we are getting Callbacks
-						PScene->unlockWrite();
 					}
 #endif
 				}

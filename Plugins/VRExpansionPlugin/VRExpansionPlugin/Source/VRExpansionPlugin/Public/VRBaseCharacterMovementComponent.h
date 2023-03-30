@@ -62,10 +62,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VRBaseCharacterMovementComponent|Smoothing")
 		bool bDisableSimulatedTickWhenSmoothingMovement;
 
-	// When true the hmd movement injection speed is capped to the maximum movement speed
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VRMovement")
-	bool bCapHMDMovementToMaxMovementSpeed;
-
 	// Adding seated transition
 	void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;
 
@@ -123,6 +119,11 @@ public:
 	// This node specifically sets the FACING direction to a value, where your HMD is pointed
 	UFUNCTION(BlueprintCallable, Category = "VRMovement")
 		void PerformMoveAction_SetRotation(float NewYaw, EVRMoveActionVelocityRetention VelocityRetention = EVRMoveActionVelocityRetention::VRMOVEACTION_Velocity_None, bool bFlagGripTeleport = false, bool bFlagCharacterTeleport = false);
+
+
+	// This node specifically sets the FACING direction to a value, where your two point
+	UFUNCTION(BlueprintCallable, Category = "VRMovement")
+		void PerformMoveAction_SetRotationTwoPointVector(FRotator Rotation, float NewYaw, EVRMoveActionVelocityRetention VelocityRetention = EVRMoveActionVelocityRetention::VRMOVEACTION_Velocity_None, bool bFlagGripTeleport = false, bool bFlagCharacterTeleport = false);
 
 	// Perform a teleport in line with the move action system
 	UFUNCTION(BlueprintCallable, Category = "VRMovement")
@@ -219,16 +220,6 @@ public:
 		LastPreAdditiveVRVelocity += (CustomVRInputVector / deltaTime);
 
 		Velocity += LastPreAdditiveVRVelocity;
-	
-		if (bCapHMDMovementToMaxMovementSpeed && GetReplicatedMovementMode() != EVRConjoinedMovementModes::C_MOVE_Falling)
-		{
-			if (IsExceedingMaxSpeed(GetMaxSpeed()))
-			{
-				// Force us to the max possible speed for the movement mode
-				Velocity = Velocity.GetSafeNormal() * GetMaxSpeed();
-			}
-		}
-
 	}
 
 	inline void RestorePreAdditiveVRMotionVelocity()

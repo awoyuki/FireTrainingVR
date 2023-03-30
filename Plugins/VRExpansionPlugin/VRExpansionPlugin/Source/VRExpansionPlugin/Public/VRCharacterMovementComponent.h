@@ -67,12 +67,8 @@ public:
 	virtual bool IsWithinEdgeTolerance(const FVector& CapsuleLocation, const FVector& TestImpactPoint, const float CapsuleRadius) const override;
 
 	// Allow merging movement replication (may cause issues when >10 players due to capsule location
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "VRCharacterMovementComponent")
-		bool bAllowMovementMerging;
-
-	// If true we will run client corrections off of the HMD location instead of actor, this is a settable value to allow backwards compatibility
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "VRCharacterMovementComponent")
-		bool bRunClientCorrectionToHMD;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VRCharacterMovementComponent")
+	bool bAllowMovementMerging;
 
 	// Higher values will cause more slide but better step up
 	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VRCharacterMovementComponent", meta = (ClampMin = "0.01", UIMin = "0", ClampMax = "1.0", UIMax = "1"))
@@ -184,7 +180,6 @@ public:
 	 * Default UObject constructor.
 	 */
 	UVRCharacterMovementComponent(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-	virtual void OnRegister() override;
 
 	float ImmersionDepth() const override;
 	bool CanCrouch();

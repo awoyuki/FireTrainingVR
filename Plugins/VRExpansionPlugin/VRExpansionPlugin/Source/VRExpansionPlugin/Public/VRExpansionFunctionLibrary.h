@@ -68,11 +68,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VRExpansionFunctions|Collision", meta = (bIgnoreSelf = "true", WorldContext = "WorldContextObject", CallableWithoutWorldContext))
 		static bool IsComponentIgnoringCollision(UObject* WorldContextObject, UPrimitiveComponent* Prim1);
 
-	// Returns if the component is ignoring collisions with the specific component
-	// This does not check per bone, but rather at scale if any part of them are ignoring each other
-	UFUNCTION(BlueprintCallable, Category = "VRExpansionFunctions|Collision", meta = (bIgnoreSelf = "true", WorldContext = "WorldContextObject", CallableWithoutWorldContext))
-		static bool AreComponentsIgnoringCollisions(UObject* WorldContextObject, UPrimitiveComponent* Prim1, UPrimitiveComponent* Prim2);
-
 	UFUNCTION(BlueprintPure, Category = "VRExpansionFunctions", meta = (bIgnoreSelf = "true", DisplayName = "GetHandFromMotionSourceName"))
 	static bool GetHandFromMotionSourceName(FName MotionSource, EControllerHand& Hand)
 	{
@@ -208,10 +203,6 @@ public:
 	/* Returns true if the values are equal (A == B) */
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "Equal VR Grip", CompactNodeTitle = "==", Keywords = "== equal"), Category = "VRExpansionFunctions")
 	static bool EqualEqual_FBPActorGripInformation(const FBPActorGripInformation &A, const FBPActorGripInformation &B);
-
-	/* Returns true if the grip is active (both valid and not paused) */
-	UFUNCTION(BlueprintPure, Category = "VRExpansionFunctions")
-		static bool IsActiveGrip(const FBPActorGripInformation& Grip);
 
 
 	/** Make a transform net quantize from location, rotation and scale */

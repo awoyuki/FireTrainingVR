@@ -3,7 +3,6 @@
 //#include "EngineMinimal.h"
 #include "Engine/Engine.h"
 #include "CoreMinimal.h"
-#include "Engine/Texture.h"
 #include "Engine/Texture2D.h"
 #include "Rendering/Texture2DResource.h"
 #include "RenderUtils.h"
@@ -84,7 +83,6 @@ EBPOpenVRHMDDeviceType UOpenVRExpansionFunctionLibrary::GetOpenVRHMDType()
 				"Vive MV";
 				"Vive Cosmos"
 				"VIVE_Pro MV"
-				"Vive Focus"
 				"Oculus Rift CV1";
 				"Lenovo Explorer";
 				"HP Windows Mixed Reality Headset";
@@ -105,22 +103,7 @@ EBPOpenVRHMDDeviceType UOpenVRExpansionFunctionLibrary::GetOpenVRHMDType()
 			}
 			else if (DeviceModelNumber.Find("vive", ESearchCase::IgnoreCase) != INDEX_NONE)
 			{
-				if (DeviceModelNumber.Find("focus3", ESearchCase::IgnoreCase) != INDEX_NONE)
-				{
-					DeviceType = EBPOpenVRHMDDeviceType::DT_ViveFocus3;
-				}
-				else if (DeviceModelNumber.Find("focus", ESearchCase::IgnoreCase) != INDEX_NONE)
-				{
-					DeviceType = EBPOpenVRHMDDeviceType::DT_ViveFocus;
-				}
-				else if (DeviceModelNumber.Find("Pico  Neo3", ESearchCase::IgnoreCase) != INDEX_NONE)
-				{
-					DeviceType = EBPOpenVRHMDDeviceType::DT_PicoNeo3;
-				}
-				else
-				{
-					DeviceType = EBPOpenVRHMDDeviceType::DT_Vive;
-				}
+				DeviceType = EBPOpenVRHMDDeviceType::DT_Vive;
 			}
 			else if ((DeviceModelNumber.Find("oculus quest", ESearchCase::IgnoreCase) != INDEX_NONE) ||
 					(DeviceModelNumber.Find("miramar", ESearchCase::IgnoreCase) != INDEX_NONE))
@@ -249,10 +232,6 @@ EBPOpenVRControllerDeviceType UOpenVRExpansionFunctionLibrary::GetOpenVRControll
 		else if (DeviceModelNumber.Find("windowsmr", ESearchCase::IgnoreCase) != INDEX_NONE) // Oculus Rift CV1
 		{
 			DeviceType = EBPOpenVRControllerDeviceType::DT_WMRController;
-		}
-		else if (DeviceModelNumber.Find("Pico  Neo3  Controller", ESearchCase::IgnoreCase) != INDEX_NONE) // PicoNeo3
-		{
-			DeviceType = EBPOpenVRControllerDeviceType::DT_PicoNeo3Controller;
 		}
 		else
 		{

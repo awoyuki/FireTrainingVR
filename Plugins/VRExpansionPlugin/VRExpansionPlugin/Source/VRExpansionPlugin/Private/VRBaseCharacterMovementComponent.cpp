@@ -8,7 +8,6 @@
 #include "VRBaseCharacterMovementComponent.h"
 #include "VRBPDatatypes.h"
 #include "ParentRelativeAttachmentComponent.h"
-#include "GripMotionControllerComponent.h"
 #include "VRBaseCharacter.h"
 #include "VRRootComponent.h"
 #include "VRPlayerController.h"
@@ -74,7 +73,6 @@ UVRBaseCharacterMovementComponent::UVRBaseCharacterMovementComponent(const FObje
 
 	bUseClientControlRotation = true;
 	bDisableSimulatedTickWhenSmoothingMovement = true;
-	bCapHMDMovementToMaxMovementSpeed = false;
 
 	SetNetworkMoveDataContainer(VRNetworkMoveDataContainer);
 	SetMoveResponseDataContainer(VRMoveResponseDataContainer);
@@ -637,6 +635,30 @@ void UVRBaseCharacterMovementComponent::PerformMoveAction_SetRotation(float NewY
 	if (VelocityRetention == EVRMoveActionVelocityRetention::VRMOVEACTION_Velocity_Turn)
 	{
 		float DeltaYawAngle = FMath::FindDeltaAngleDegrees(UpdatedComponent->GetComponentRotation().Yaw, NewYaw);
+		//MoveAction.MoveActionRot.Pitch = FMath::RoundToFloat(DeltaYawAngle * 100.f) / 100.f;
+		MoveAction.MoveActionRot.Pitch = DeltaYawAngle;
+	}
+
+	MoveAction.VelRetentionSetting = VelocityRetention;
+
+	MoveActionArray.MoveActions.Add(MoveAction);
+	CheckServerAuthedMoveAction();
+}
+
+void UVRBaseCharacterMovementComponent::PerformMoveAction_SetRotationTwoPointVector(FRotator Rotation, float NewYaw, EVRMoveActionVelocityRetention VelocityRetention /*= EVRMoveActionVelocityRetention::VRMOVEACTION_Velocity_None*/, bool bFlagGripTeleport /*= false*/, bool bFlagCharacterTeleport /*= false*/)
+{
+	FVRMoveActionContainer MoveAction;
+	MoveAction.MoveAction = EVRMoveAction::VRMOVEACTION_SetRotation;
+	MoveAction.MoveActionRot = FRotator(0.0f, FMath::RoundToFloat(Rotation.Yaw * 100.f) / 100.f, 0.0f);
+
+	if (bFlagCharacterTeleport)
+		MoveAction.MoveActionFlags = 0x02;// .MoveActionRot.Roll = 2.0f;
+	else if (bFlagGripTeleport)
+		MoveAction.MoveActionFlags = 0x01;//MoveActionRot.Roll = bFlagGripTeleport ? 1.0f : 0.0f;
+
+	if (VelocityRetention == EVRMoveActionVelocityRetention::VRMOVEACTION_Velocity_Turn)
+	{
+		float DeltaYawAngle = FMath::FindDeltaAngleDegrees(Rotation.Yaw, NewYaw);
 		//MoveAction.MoveActionRot.Pitch = FMath::RoundToFloat(DeltaYawAngle * 100.f) / 100.f;
 		MoveAction.MoveActionRot.Pitch = DeltaYawAngle;
 	}
@@ -1415,9 +1437,7 @@ void UVRBaseCharacterMovementComponent::OnClientCorrectionReceived(class FNetwor
 	if (BaseVRCharacterOwner)
 	{
 		BaseVRCharacterOwner->OnCharacterNetworkCorrected_Bind.Broadcast();
-		BaseVRCharacterOwner->LeftMotionController->TeleportMoveGrips(false, false);
-		BaseVRCharacterOwner->RightMotionController->TeleportMoveGrips(false, false);
-		//BaseVRCharacterOwner->NotifyOfTeleport(false);
+		BaseVRCharacterOwner->NotifyOfTeleport(false);
 	}
 }
 

@@ -3,31 +3,8 @@
 #include "Grippables/HandSocketComponent.h"
 #include "Engine/CollisionProfile.h"
 #include "Net/UnrealNetwork.h"
-#include "Serialization/CustomVersion.h"
 
 DEFINE_LOG_CATEGORY(LogVRHandSocketComponent);
-
-const FGuid FVRHandSocketCustomVersion::GUID(0x1EB5FDBD, 0x11AC4D10, 0x1136F38F, 0x1393A5DA);
-
-// Register the custom version with core
-FCustomVersionRegistration GRegisterHandSocketCustomVersion(FVRHandSocketCustomVersion::GUID, FVRHandSocketCustomVersion::LatestVersion, TEXT("HandSocketVer"));
-
-
-void UHandSocketComponent::Serialize(FArchive& Ar)
-{
-	Super::Serialize(Ar);
-
-	Ar.UsingCustomVersion(FVRHandSocketCustomVersion::GUID);
-
-#if WITH_EDITORONLY_DATA
-	const int32 CustomHandSocketVersion = Ar.CustomVer(FVRHandSocketCustomVersion::GUID);
-
-	if (CustomHandSocketVersion < FVRHandSocketCustomVersion::HandSocketStoringSetState)
-	{
-		bDecoupled = bDecoupleMeshPlacement;
-	}
-#endif
-}
 
   //=============================================================================
 UHandSocketComponent::UHandSocketComponent(const FObjectInitializer& ObjectInitializer)
@@ -44,10 +21,8 @@ UHandSocketComponent::UHandSocketComponent(const FObjectInitializer& ObjectIniti
 
 #if WITH_EDITORONLY_DATA
 	bTickedPose = false;
-	bDecoupled = false;
 	bShowVisualizationMesh = true;
 	bMirrorVisualizationMesh = false;
-	bShowRangeVisualization = false;
 #endif
 
 	HandRelativePlacement = FTransform::Identity;
@@ -60,7 +35,6 @@ UHandSocketComponent::UHandSocketComponent(const FObjectInitializer& ObjectIniti
 	HandTargetAnimation = nullptr;
 	MirroredScale = FVector(1.f, 1.f, -1.f);
 	bOnlySnapMesh = false;
-	bIgnoreAttachBone = false;
 	bFlipForLeftHand = false;
 	bLeftHandDominant = false;
 	bOnlyFlipRotation = false;
@@ -411,19 +385,14 @@ FTransform UHandSocketComponent::GetHandSocketTransform(UGripMotionControllerCom
 			if (bLeftHandDominant == bIsRightHand)
 			{
 				FTransform ReturnTrans = this->GetRelativeTransform();
+				ReturnTrans.Mirror(GetAsEAxis(MirrorAxis), GetAsEAxis(FlipAxis));
+				if (bOnlyFlipRotation)
+				{
+					ReturnTrans.SetTranslation(this->GetRelativeLocation());
+				}
+
 				if (USceneComponent* AttParent = this->GetAttachParent())
 				{
-					ReturnTrans.Mirror(GetAsEAxis(MirrorAxis), GetAsEAxis(FlipAxis));
-					if (bOnlyFlipRotation)
-					{
-						ReturnTrans.SetTranslation(this->GetRelativeLocation());
-					}
-
-					if (this->GetAttachSocketName() != NAME_None)
-					{
-						ReturnTrans = ReturnTrans * AttParent->GetSocketTransform(GetAttachSocketName(), RTS_Component);
-					}
-
 					ReturnTrans = ReturnTrans * AttParent->GetComponentTransform();
 				}
 				return ReturnTrans;
@@ -434,7 +403,7 @@ FTransform UHandSocketComponent::GetHandSocketTransform(UGripMotionControllerCom
 	return this->GetComponentTransform();
 }
 
-FTransform UHandSocketComponent::GetMeshRelativeTransform(bool bIsRightHand, bool bUseParentScale, bool bUseMirrorScale)
+FTransform UHandSocketComponent::GetMeshRelativeTransform(bool bIsRightHand, bool bUseParentScale)
 {
 	// Optionally mirror for left hand
 
@@ -467,17 +436,8 @@ FTransform UHandSocketComponent::GetMeshRelativeTransform(bool bIsRightHand, boo
 	{
 		//FTransform relTrans = this->GetRelativeTransform();
 		MirrorHandTransform(ReturnTrans, relTrans);
-
-		if (bUseMirrorScale)
-		{
-			ReturnTrans.SetScale3D(ReturnTrans.GetScale3D() * MirroredScale.GetSignVector());
-		}
 	}
 
-	if (bIgnoreAttachBone && this->GetAttachSocketName() != NAME_None)
-	{
-		ReturnTrans = ReturnTrans * GetAttachParent()->GetSocketTransform(GetAttachSocketName(), RTS_Component);
-	}
 
 	return ReturnTrans;
 }
@@ -530,7 +490,7 @@ void UHandSocketComponent::OnRegister()
 				HandVisualizerComponent->SetSkeletalMesh(VisualizationMesh);
 				if (HandPreviewMaterial)
 				{
-					HandVisualizerComponent->SetMaterial(0, (UMaterialInterface*)HandPreviewMaterial);
+					HandVisualizerComponent->SetMaterial(0, HandPreviewMaterial);
 				}
 			}
 
@@ -556,19 +516,6 @@ void UHandSocketComponent::PositionVisualizationMesh()
 	if (USceneComponent* ParentAttach = this->GetAttachParent())
 	{
 		FTransform relTrans = this->GetRelativeTransform();
-
-		if (bDecoupled != bDecoupleMeshPlacement)
-		{
-			if (bDecoupleMeshPlacement)
-			{
-				HandRelativePlacement = HandRelativePlacement * GetRelativeTransform();
-			}
-			else
-			{
-				HandRelativePlacement = HandRelativePlacement.GetRelativeTransform(GetRelativeTransform());
-			}
-		}
-
 		FTransform HandPlacement = GetHandRelativePlacement();
 		FTransform ReturnTrans = (HandPlacement * relTrans);
 

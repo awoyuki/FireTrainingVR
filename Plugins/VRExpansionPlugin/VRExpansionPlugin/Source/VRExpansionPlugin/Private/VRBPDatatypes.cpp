@@ -86,7 +86,6 @@ bool FTransform_NetQuantize::NetSerialize(FArchive& Ar, class UPackageMap* Map, 
 
 		// Set it
 		this->SetComponents(rRotation.Quaternion(), rTranslation, rScale3D);
-		this->NormalizeRotation();
 	}
 
 	return bOutSuccess;
@@ -102,12 +101,6 @@ void FBPEuroLowPassFilter::ResetSmoothingFilter()
 
 FVector FBPEuroLowPassFilter::RunFilterSmoothing(const FVector &InRawValue, const float &InDeltaTime)
 {
-	if (InDeltaTime <= 0.0f)
-	{
-		// Invalid delta time, return the in value
-		return InRawValue;
-	}
-
 	// Calculate the delta, if this is the first time then there is no delta
 	const FVector Delta = RawFilter.bFirstTime == true ? FVector::ZeroVector : (InRawValue - RawFilter.PreviousRaw) * 1.0f / InDeltaTime;
 
@@ -129,11 +122,6 @@ void FBPEuroLowPassFilterQuat::ResetSmoothingFilter()
 
 FQuat FBPEuroLowPassFilterQuat::RunFilterSmoothing(const FQuat& InRawValue, const float& InDeltaTime)
 {
-	if (InDeltaTime <= 0.0f)
-	{
-		// Invalid delta time, return the in value
-		return InRawValue;
-	}
 
 	FQuat NewInVal = InRawValue;
 	if (!RawFilter.bFirstTime)
@@ -173,11 +161,6 @@ void FBPEuroLowPassFilterTrans::ResetSmoothingFilter()
 
 FTransform FBPEuroLowPassFilterTrans::RunFilterSmoothing(const FTransform& InRawValue, const float& InDeltaTime)
 {
-	if (InDeltaTime <= 0.0f)
-	{
-		// Invalid delta time, return the in value
-		return InRawValue;
-	}
 
 	FTransform NewInVal = InRawValue;
 	if (!RawFilter.bFirstTime)

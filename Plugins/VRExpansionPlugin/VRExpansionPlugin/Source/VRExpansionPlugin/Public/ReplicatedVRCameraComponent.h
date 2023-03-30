@@ -55,44 +55,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ReplicatedCamera")
 	bool bOffsetByHMD;
 
-	// If true will scale the tracking of the camera by TrackingScaler
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ReplicatedCamera|Advanced|Tracking")
-		bool bScaleTracking;
-
-	// A scale to be applied to the tracking of the camera
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ReplicatedCamera|Advanced|Tracking", meta = (ClampMin = "0.1", UIMin = "0.1", EditCondition = "bScaleTracking"))
-		FVector TrackingScaler;
-
-	// If true we will use the minimum height value to clamp the Z too
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ReplicatedCamera|Advanced|Tracking")
-		bool bLimitMinHeight;
-
-	// The minimum height to allow for this camera
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ReplicatedCamera|Advanced|Tracking", meta = (ClampMin = "0.0", UIMin = "0.0", EditCondition = "bLimitMinHeight"))
-		float MinimumHeightAllowed;
-
-	// If true will limit the max Z height that the camera is capable of reaching
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ReplicatedCamera|Advanced|Tracking")
-		bool bLimitMaxHeight;
-
-	// If we are limiting the max height, this is the maximum allowed value
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ReplicatedCamera|Advanced|Tracking", meta = (ClampMin = "0.1", UIMin = "0.1", EditCondition = "bLimitMaxHeight"))
-		float MaxHeightAllowed;
-
-	// If true will limit the maximum offset from center of the players tracked space
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ReplicatedCamera|Advanced|Tracking")
-		bool bLimitBounds;
-
-	// If we are limiting the maximum bounds, this is the maximum length of the vector from the center of the tracked space
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ReplicatedCamera|Advanced|Tracking", meta = (ClampMin = "0.1", UIMin = "0.1", EditCondition = "bLimitMaxHeight"))
-		float MaximumTrackedBounds;
-
 	/** Sets lock to hmd automatically based on if the camera is currently locally controlled or not */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ReplicatedCamera|Advanced|Tracking")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ReplicatedCamera")
 		uint32 bAutoSetLockToHmd : 1;
-
-	void ApplyTrackingParameters(FVector& OriginalPosition);
-	bool HasTrackingParameters();
 
 	//UFUNCTION(BlueprintCallable, Category = Camera)
 		virtual void GetCameraView(float DeltaTime, FMinimalViewInfo& DesiredView) override;
@@ -100,39 +65,37 @@ public:
 	UPROPERTY(EditDefaultsOnly, ReplicatedUsing = OnRep_ReplicatedCameraTransform, Category = "ReplicatedCamera|Networking")
 	FBPVRComponentPosRep ReplicatedCameraTransform;
 
-	FBPVRComponentPosRep MotionSampleUpdateBuffer[2];
-
 	FVector LastUpdatesRelativePosition;
 	FRotator LastUpdatesRelativeRotation;
 
 	bool bLerpingPosition;
 	bool bReppedOnce;
 
-	// Run the smoothing step
-	void RunNetworkedSmoothing(float DeltaTime);
-
 	// Whether to smooth (lerp) between ticks for the replicated motion, DOES NOTHING if update rate is larger than FPS!
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "ReplicatedCamera|Networking")
 		bool bSmoothReplicatedMotion;
-
-	// If true then we will use exponential smoothing with buffered correction
-	UPROPERTY(EditAnywhere, Category = "GripMotionController|Networking|Smoothing", meta = (editcondition = "bSmoothReplicatedMotion"))
-		bool bUseExponentialSmoothing = true;
-
-	// Timestep of smoothing translation
-	UPROPERTY(EditAnywhere, Category = "GripMotionController|Networking|Smoothing", meta = (editcondition = "bUseExponentialSmoothing"))
-		float InterpolationSpeed = 25.0f;
-
-	// Max distance to allow smoothing before snapping the remainder
-	UPROPERTY(EditAnywhere, Category = "GripMotionController|Networking|Smoothing", meta = (editcondition = "bUseExponentialSmoothing"))
-		float NetworkMaxSmoothUpdateDistance = 50.f;
-
-	// Max distance to allow smoothing before snapping entirely to the new position
-	UPROPERTY(EditAnywhere, Category = "GripMotionController|Networking|Smoothing", meta = (editcondition = "bUseExponentialSmoothing"))
-		float NetworkNoSmoothUpdateDistance = 100.f;
 	
 	UFUNCTION()
-	virtual void OnRep_ReplicatedCameraTransform();
+	virtual void OnRep_ReplicatedCameraTransform()
+	{
+		if (bSmoothReplicatedMotion)
+		{
+			if (bReppedOnce)
+			{
+				bLerpingPosition = true;
+				NetUpdateCount = 0.0f;
+				LastUpdatesRelativePosition = this->GetRelativeLocation();
+				LastUpdatesRelativeRotation = this->GetRelativeRotation();
+			}
+			else
+			{
+				SetRelativeLocationAndRotation(ReplicatedCameraTransform.Position, ReplicatedCameraTransform.Rotation);
+				bReppedOnce = true;
+			}
+		}
+		else
+			SetRelativeLocationAndRotation(ReplicatedCameraTransform.Position, ReplicatedCameraTransform.Rotation);
+	}
 
 	// Rate to update the position to the server, 100htz is default (same as replication rate, should also hit every tick).
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "ReplicatedCamera|Networking")

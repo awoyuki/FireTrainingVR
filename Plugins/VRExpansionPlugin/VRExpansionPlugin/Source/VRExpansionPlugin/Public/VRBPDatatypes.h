@@ -82,20 +82,6 @@ enum class EBPVRResultSwitch : uint8
 	OnFailed
 };
 
-// Which method of handling gripping conflict to take with client auth
-UENUM(BlueprintType)
-enum class EVRClientAuthConflictResolutionMode : uint8
-{
-	// Do nothing
-	VRGRIP_CONFLICT_None,
-	// Give to the first to arrive
-	VRGRIP_CONFLICT_First,
-	// Give to the last to arrive
-	VRGRIP_CONFLICT_Last,
-	// Force all ends to drop their grip
-	VRGRIP_CONFLICT_DropAll
-};
-
 // Wasn't needed when final setup was realized
 // Tracked device waist location
 UENUM(Blueprintable)
@@ -1458,7 +1444,6 @@ public:
 	
 	// For delta teleport and any future calculations we want to do
 	FTransform LastWorldTransform;
-	bool bSetLastWorldTransform;
 
 	// Need to skip one frame of length check post teleport with constrained objects, the constraint may have not been updated yet.
 	bool bSkipNextTeleportCheck;
@@ -1477,18 +1462,6 @@ public:
 	bool IsLocalAuthGrip()
 	{
 		return GripMovementReplicationSetting == EGripMovementReplicationSettings::ClientSide_Authoritive || GripMovementReplicationSetting == EGripMovementReplicationSettings::ClientSide_Authoritive_NoRep;
-	}
-
-	// If the grip is valid
-	bool IsValid() const
-	{
-		return (!bIsPendingKill && GripID != INVALID_VRGRIP_ID && GrippedObject);
-	}
-
-	// Both valid and is not paused
-	bool IsActive() const
-	{
-		return (!bIsPendingKill && GripID != INVALID_VRGRIP_ID && GrippedObject && !bIsPaused);
 	}
 
 	// Cached values - since not using a full serialize now the old array state may not contain what i need to diff
@@ -1512,7 +1485,6 @@ public:
 		bIsLocked = false;
 		LastLockedRotation = FQuat::Identity;
 		LastWorldTransform.SetIdentity();
-		bSetLastWorldTransform = false;
 		bSkipNextTeleportCheck = false;
 		bSkipNextConstraintLengthCheck = false;
 		bIsPaused = false;
@@ -1632,7 +1604,6 @@ public:
 		bIsLocked(false),
 		LastLockedRotation(FRotator::ZeroRotator),
 		LastWorldTransform(FTransform::Identity),
-		bSetLastWorldTransform(false),
 		bSkipNextTeleportCheck(false),
 		bSkipNextConstraintLengthCheck(false),
 		CurrentLerpTime(0.f),
@@ -1784,7 +1755,6 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Settings")
 		UObject * HandledObject;
 	uint8 GripID;
-	bool bIsPaused;
 
 	FPhysicsActorHandle KinActorData2;
 	FPhysicsConstraintHandle HandleData2;
@@ -1797,8 +1767,8 @@ public:
 
 	bool bSetCOM;
 	bool bSkipResettingCom;
+	bool bSkipMassCheck;
 	bool bSkipDeletingKinematicActor;
-	bool bInitiallySetup;
 
 	FBPActorPhysicsHandleInformation()
 	{	
@@ -1806,12 +1776,11 @@ public:
 		LastPhysicsTransform = FTransform::Identity;
 		COMPosition = FTransform::Identity;
 		GripID = INVALID_VRGRIP_ID;
-		bIsPaused = false;
 		RootBoneRotation = FTransform::Identity;
 		bSetCOM = false;
 		bSkipResettingCom = false;
+		bSkipMassCheck = false;
 		bSkipDeletingKinematicActor = false;
-		bInitiallySetup = false;
 #if WITH_CHAOS
 		KinActorData2 = nullptr;
 #endif

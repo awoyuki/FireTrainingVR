@@ -1,6 +1,5 @@
 
 #include "VRGlobalSettings.h"
-#include "Grippables/GrippableSkeletalMeshComponent.h"
 
 #if WITH_CHAOS
 #include "Chaos/ChaosConstraintSettings.h"
@@ -8,11 +7,7 @@
 
 UVRGlobalSettings::UVRGlobalSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer),
-	bLerpHybridWithSweepGrips(false),
-	bOnlyLerpHybridRotation(false),
-	HybridWithSweepLerpDuration(0.2f),
 	bUseGlobalLerpToHand(false),
-	bSkipLerpToHandIfHeld(false),
 	MinDistanceForLerp(10.0f),
 	LerpDuration(0.25f),
 	MinSpeedForLerp(100.f),
@@ -28,8 +23,6 @@ UVRGlobalSettings::UVRGlobalSettings(const FObjectInitializer& ObjectInitializer
 	bUseSeperateHandTransforms(false),
 	CurrentControllerProfileTransformRight(FTransform::Identity)
 {
-	DefaultGrippableCharacterMeshComponentClass = UGrippableSkeletalMeshComponent::StaticClass();
-
 #if WITH_CHAOS
 		LinearDriveStiffnessScale = Chaos::ConstraintSettings::LinearDriveStiffnessScale();
 		LinearDriveDampingScale = Chaos::ConstraintSettings::LinearDriveDampingScale();
@@ -37,23 +30,6 @@ UVRGlobalSettings::UVRGlobalSettings(const FObjectInitializer& ObjectInitializer
 		AngularDriveDampingScale = Chaos::ConstraintSettings::AngularDriveDampingScale();
 #endif
 }
-
-TSubclassOf<class UGrippableSkeletalMeshComponent> UVRGlobalSettings::GetDefaultGrippableCharacterMeshComponentClass()
-{
-	const UVRGlobalSettings* VRSettings = GetDefault<UVRGlobalSettings>();
-
-	if (VRSettings)
-	{
-		// Using a getter to stay safe from bricking peoples projects if they set it to none somehow
-		if (VRSettings->DefaultGrippableCharacterMeshComponentClass != nullptr)
-		{
-			return VRSettings->DefaultGrippableCharacterMeshComponentClass;
-		}
-	}
-
-	return UGrippableSkeletalMeshComponent::StaticClass();
-}
-
 
 bool UVRGlobalSettings::IsGlobalLerpEnabled()
 {

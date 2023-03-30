@@ -50,25 +50,6 @@ void UVRExpansionFunctionLibrary::SetActorsIgnoreAllCollision(UObject* WorldCont
 		{
 			for (int j = 0; j < PrimitiveComponents2.Num(); ++j)
 			{
-				// Don't ignore collision if one is already invalid
-				if (!PrimitiveComponents1[i] || !PrimitiveComponents2[j])
-				{
-					continue;
-				}
-
-				// Don't ignore collision if no collision on at least one of the objects
-				if (PrimitiveComponents1[i]->GetCollisionEnabled() == ECollisionEnabled::NoCollision || PrimitiveComponents2[j]->GetCollisionEnabled() == ECollisionEnabled::NoCollision)
-				{
-					if (!bIgnoreCollision)
-					{
-						if (CollisionIgnoreSubsystem->AreComponentsIgnoringCollisions(PrimitiveComponents1[i], PrimitiveComponents2[j]))
-						{
-							UE_LOG(VRExpansionFunctionLibraryLog, Error, TEXT("Set Actors Ignore Collision called with at least one object set to no collision that are ignoring collision already!! %s, %s"), *PrimitiveComponents1[i]->GetName(), *PrimitiveComponents2[j]->GetName());
-						}
-					}
-					continue;
-				}
-
 				CollisionIgnoreSubsystem->SetComponentCollisionIgnoreState(true, true, PrimitiveComponents1[i], NAME_None, PrimitiveComponents2[j], NAME_None, bIgnoreCollision, bIgnorefirst);
 				bIgnorefirst = false;
 			}
@@ -87,6 +68,7 @@ void UVRExpansionFunctionLibrary::SetObjectsIgnoreCollision(UObject* WorldContex
 }
 
 
+
 bool UVRExpansionFunctionLibrary::IsComponentIgnoringCollision(UObject* WorldContextObject, UPrimitiveComponent* Prim1)
 {
 	UCollisionIgnoreSubsystem* CollisionIgnoreSubsystem = WorldContextObject->GetWorld()->GetSubsystem<UCollisionIgnoreSubsystem>();
@@ -94,18 +76,6 @@ bool UVRExpansionFunctionLibrary::IsComponentIgnoringCollision(UObject* WorldCon
 	if (CollisionIgnoreSubsystem)
 	{
 		return CollisionIgnoreSubsystem->IsComponentIgnoringCollision(Prim1);
-	}
-
-	return false;
-}
-
-bool UVRExpansionFunctionLibrary::AreComponentsIgnoringCollisions(UObject* WorldContextObject, UPrimitiveComponent* Prim1, UPrimitiveComponent* Prim2)
-{
-	UCollisionIgnoreSubsystem* CollisionIgnoreSubsystem = WorldContextObject->GetWorld()->GetSubsystem<UCollisionIgnoreSubsystem>();
-
-	if (CollisionIgnoreSubsystem && CollisionIgnoreSubsystem->CollisionTrackedPairs.Num() > 0)
-	{
-		return CollisionIgnoreSubsystem->AreComponentsIgnoringCollisions(Prim1, Prim2);
 	}
 
 	return false;
@@ -223,13 +193,7 @@ void UVRExpansionFunctionLibrary::GetGripSlotInRangeByTypeName_Component(FName S
 		{
 			if (UHandSocketComponent* SocketComp = Cast<UHandSocketComponent>(AttachChild))
 			{
-				if (SocketComp->bDisabled)
-					continue;
-
-				FName BoneName = SocketComp->GetAttachSocketName();
-				FString SlotPrefix = BoneName != NAME_None ? BoneName.ToString() + SocketComp->SlotPrefix.ToString() : SocketComp->SlotPrefix.ToString();
-
-				if (SlotPrefix.Contains(GripIdentifier, ESearchCase::IgnoreCase, ESearchDir::FromStart))
+				if (!SocketComp->bDisabled && SocketComp->SlotPrefix.ToString().Contains(GripIdentifier, ESearchCase::IgnoreCase, ESearchDir::FromStart))
 				{
 					FVector SocketRelativeLocation = Component->GetComponentTransform().InverseTransformPosition(SocketComp->GetHandSocketTransform(QueryController, true).GetLocation());
 					float vecLen = FVector::DistSquared(RelativeWorldLocation, SocketRelativeLocation);
@@ -556,11 +520,6 @@ void UVRExpansionFunctionLibrary::NonAuthorityMinimumAreaRectangle(class UObject
 bool UVRExpansionFunctionLibrary::EqualEqual_FBPActorGripInformation(const FBPActorGripInformation& A, const FBPActorGripInformation& B)
 {
 	return A == B;
-}
-
-bool UVRExpansionFunctionLibrary::IsActiveGrip(const FBPActorGripInformation& Grip)
-{
-	return Grip.IsValid() && !Grip.bIsPaused;
 }
 
 

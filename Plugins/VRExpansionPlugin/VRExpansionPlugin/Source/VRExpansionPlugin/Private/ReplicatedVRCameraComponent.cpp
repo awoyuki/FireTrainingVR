@@ -11,31 +11,39 @@
 #include "IHeadMountedDisplay.h"
 
 
-// Ported epics head tracking allowed for world fix back to this temp patch in 4.27
+// CTPEEPEE's workaround until epic fixes their function
+// This doesn't fix some of the other areas that use this for XR but it at least gets the
+// view correct in the preview
+// #TODO: REMOVE ASAP when epic fixes it
 bool TMP_IsHeadTrackingAllowedForWorld(IXRTrackingSystem* XRSystem, UWorld* World)
 {
 #if WITH_EDITOR
-	// This implementation is constrained by hotfix rules.  It would be better to cache this somewhere.
-	if (!XRSystem->IsHeadTrackingAllowed())
+	if (GIsEditor)
 	{
-		return false;
-	}
+		UEditorEngine* EdEngine = Cast<UEditorEngine>(GEngine);
+		TOptional<FPlayInEditorSessionInfo> PlayInEditorSessionInfo = EdEngine->GetPlayInEditorSessionInfo();
+		
+		check(PlayInEditorSessionInfo.IsSet())
+			FRequestPlaySessionParams RequestPlaySessionParams = PlayInEditorSessionInfo.GetValue().OriginalRequestParams;
+		ULevelEditorPlaySettings* PlaySettings = RequestPlaySessionParams.EditorPlaySettings;
+		check(PlaySettings);
 
-	if (World->WorldType != EWorldType::PIE)
-	{
-		return true;
-	}
-
-	// If we are a pie instance then the first pie world that is not a dedicated server uses head tracking
-	const int32 MyPIEInstanceID = World->GetOutermost()->PIEInstanceID;
-	for (const FWorldContext& WorldContext : GEngine->GetWorldContexts())
-	{
-		if (WorldContext.WorldType == EWorldType::PIE && WorldContext.RunAsDedicated == false && WorldContext.World())
+		// Not loading under a single process, we'll depend on the end user to handle it here to initialize the correct HMD setup
+		const bool bRunUnderOneProcess = [&PlaySettings] { bool RunUnderOneProcess(false); return (PlaySettings->GetRunUnderOneProcess(RunUnderOneProcess) && RunUnderOneProcess); }();
+		if (!bRunUnderOneProcess)
 		{
-			return WorldContext.World()->GetOutermost()->PIEInstanceID == MyPIEInstanceID;
+			return XRSystem->IsHeadTrackingAllowedForWorld(*World);
 		}
+
+		int32 NumClients = 0;
+		PlaySettings->GetPlayNumberOfClients(NumClients);
+		EPlayNetMode PlayNetMode;
+		PlaySettings->GetPlayNetMode(PlayNetMode);
+		int32 AllowedPIEInstanceID = PlayNetMode == PIE_Client ? 1 : 0;
+		// If join a server when PIEInstanceID will be index none. just gonna assume that's fine. might actually be issues if you have two clients when you join a server...
+		int32 PIEInstanceID = World->GetOutermost()->PIEInstanceID;
+		return XRSystem->IsHeadTrackingAllowed() && ((World->WorldType != EWorldType::PIE) || (World->GetOutermost()->PIEInstanceID == AllowedPIEInstanceID) || World->GetOutermost()->PIEInstanceID == INDEX_NONE);
 	}
-	return false;
 #endif
 	return XRSystem->IsHeadTrackingAllowedForWorld(*World);
 }
@@ -58,16 +66,7 @@ UReplicatedVRCameraComponent::UReplicatedVRCameraComponent(const FObjectInitiali
 
 	bUsePawnControlRotation = false;
 	bAutoSetLockToHmd = true;
-	bScaleTracking = false;
-	TrackingScaler = FVector(1.0f);
 	bOffsetByHMD = false;
-	bLimitMinHeight = false;
-	MinimumHeightAllowed = 0.0f;
-	bLimitMaxHeight = false;
-	MaxHeightAllowed = 300.f;
-	bLimitBounds = false;
-	// Just shy of 20' distance from the center of tracked space
-	MaximumTrackedBounds = 1028;
 
 	bSetPositionDuringTick = false;
 	bSmoothReplicatedMotion = false;
@@ -167,41 +166,6 @@ void UReplicatedVRCameraComponent::OnAttachmentChanged()
 	Super::OnAttachmentChanged();
 }
 
-bool UReplicatedVRCameraComponent::HasTrackingParameters()
-{
-	return bOffsetByHMD || bScaleTracking || bLimitMaxHeight || bLimitMinHeight || bLimitBounds;
-}
-
-void UReplicatedVRCameraComponent::ApplyTrackingParameters(FVector& OriginalPosition)
-{
-	if (bOffsetByHMD)
-	{
-		OriginalPosition.X = 0;
-		OriginalPosition.Y = 0;
-	}
-
-	if (bLimitBounds)
-	{
-		OriginalPosition.X = FMath::Clamp(OriginalPosition.X, -MaximumTrackedBounds, MaximumTrackedBounds);
-		OriginalPosition.Y = FMath::Clamp(OriginalPosition.Y, -MaximumTrackedBounds, MaximumTrackedBounds);
-	}
-
-	if (bScaleTracking)
-	{
-		OriginalPosition *= TrackingScaler;
-	}
-
-	if (bLimitMaxHeight)
-	{
-		OriginalPosition.Z = FMath::Min(MaxHeightAllowed, OriginalPosition.Z);
-	}
-
-	if (bLimitMinHeight)
-	{
-		OriginalPosition.Z = FMath::Max(MinimumHeightAllowed, OriginalPosition.Z);
-	}
-}
-
 void UReplicatedVRCameraComponent::UpdateTracking(float DeltaTime)
 {
 	bHasAuthority = IsLocallyControlled();
@@ -217,9 +181,10 @@ void UReplicatedVRCameraComponent::UpdateTracking(float DeltaTime)
 			FVector Position;
 			if (GEngine->XRSystem->GetCurrentPose(IXRTrackingSystem::HMDDeviceId, Orientation, Position))
 			{
-				if (HasTrackingParameters())
+				if (bOffsetByHMD)
 				{
-					ApplyTrackingParameters(Position);
+					Position.X = 0;
+					Position.Y = 0;
 				}
 
 				SetRelativeTransform(FTransform(Orientation, Position));
@@ -228,25 +193,7 @@ void UReplicatedVRCameraComponent::UpdateTracking(float DeltaTime)
 	}
 	else
 	{
-		// Run any networked smoothing
-		RunNetworkedSmoothing(DeltaTime);
-	}
-
-	// Save out the component velocity from this and last frame
-	if(bHadValidFirstVelocity || !LastRelativePosition.Equals(FTransform::Identity))
-	{ 
-		bHadValidFirstVelocity = true;
-		ComponentVelocity = ((bSampleVelocityInWorldSpace ? GetComponentLocation() : GetRelativeLocation()) - LastRelativePosition.GetTranslation()) / DeltaTime;
-	}
-
-	LastRelativePosition = bSampleVelocityInWorldSpace ? this->GetComponentTransform() : this->GetRelativeTransform();
-}
-
-void UReplicatedVRCameraComponent::RunNetworkedSmoothing(float DeltaTime)
-{
-	if (bLerpingPosition)
-	{
-		if (!bUseExponentialSmoothing)
+		if (bLerpingPosition)
 		{
 			NetUpdateCount += DeltaTime;
 			float LerpVal = FMath::Clamp(NetUpdateCount / (1.0f / NetUpdateRate), 0.0f, 1.0f);
@@ -272,35 +219,16 @@ void UReplicatedVRCameraComponent::RunNetworkedSmoothing(float DeltaTime)
 				);
 			}
 		}
-		else // Exponential Smoothing
-		{
-			if (InterpolationSpeed <= 0.f)
-			{
-				SetRelativeLocationAndRotation((FVector)ReplicatedCameraTransform.Position, ReplicatedCameraTransform.Rotation);
-				bLerpingPosition = false;
-				return;
-			}
-
-			const float Alpha = FMath::Clamp(DeltaTime * InterpolationSpeed, 0.f, 1.f);
-
-			FTransform NA = FTransform(GetRelativeRotation(), GetRelativeLocation(), FVector(1.0f));
-			FTransform NB = FTransform(ReplicatedCameraTransform.Rotation, (FVector)ReplicatedCameraTransform.Position, FVector(1.0f));
-			NA.NormalizeRotation();
-			NB.NormalizeRotation();
-
-			NA.Blend(NA, NB, Alpha);
-
-			// If we are nearly equal then snap to final position
-			if (NA.EqualsNoScale(NB))
-			{
-				SetRelativeLocationAndRotation(ReplicatedCameraTransform.Position, ReplicatedCameraTransform.Rotation);
-			}
-			else // Else just keep going
-			{
-				SetRelativeLocationAndRotation(NA.GetTranslation(), NA.Rotator());
-			}
-		}
 	}
+
+	// Save out the component velocity from this and last frame
+	if(bHadValidFirstVelocity || !LastRelativePosition.Equals(FTransform::Identity))
+	{ 
+		bHadValidFirstVelocity = true;
+		ComponentVelocity = ((bSampleVelocityInWorldSpace ? GetComponentLocation() : GetRelativeLocation()) - LastRelativePosition.GetTranslation()) / DeltaTime;
+	}
+
+	LastRelativePosition = bSampleVelocityInWorldSpace ? this->GetComponentTransform() : this->GetRelativeTransform();
 }
 
 
@@ -394,9 +322,10 @@ void UReplicatedVRCameraComponent::GetCameraView(float DeltaTime, FMinimalViewIn
 					FVector Position;
 					if (XRCamera->UpdatePlayerCamera(Orientation, Position))
 					{
-						if (HasTrackingParameters())
+						if (bOffsetByHMD)
 						{
-							ApplyTrackingParameters(Position);
+							Position.X = 0;
+							Position.Y = 0;
 						}
 
 						SetRelativeTransform(FTransform(Orientation, Position));
@@ -463,50 +392,4 @@ void UReplicatedVRCameraComponent::GetCameraView(float DeltaTime, FMinimalViewIn
 
 	// If this camera component has a motion vector simumlation transform, use that for the current view's previous transform
 	DesiredView.PreviousViewTransform = FMotionVectorSimulation::Get().GetPreviousTransform(this);
-}
-
-void UReplicatedVRCameraComponent::OnRep_ReplicatedCameraTransform()
-{
-	if (GetNetMode() < ENetMode::NM_Client && HasTrackingParameters())
-	{
-		// Ensure that we clamp to the expected values from the client
-		ApplyTrackingParameters(ReplicatedCameraTransform.Position);
-	}
-
-	if (bSmoothReplicatedMotion)
-	{
-		if (bReppedOnce)
-		{
-			bLerpingPosition = true;
-			NetUpdateCount = 0.0f;
-			LastUpdatesRelativePosition = this->GetRelativeLocation();
-			LastUpdatesRelativeRotation = this->GetRelativeRotation();
-
-			if (bUseExponentialSmoothing)
-			{
-				FVector OldToNewVector = ReplicatedCameraTransform.Position - LastUpdatesRelativePosition;
-				float NewDistance = OldToNewVector.SizeSquared();
-
-				// Too far, snap to the new value
-				if (NewDistance >= FMath::Square(NetworkNoSmoothUpdateDistance))
-				{
-					SetRelativeLocationAndRotation(ReplicatedCameraTransform.Position, ReplicatedCameraTransform.Rotation);
-					bLerpingPosition = false;
-				}
-				// Outside of the buffer distance, snap within buffer and keep smoothing from there
-				else if (NewDistance >= FMath::Square(NetworkMaxSmoothUpdateDistance))
-				{
-					FVector Offset = (OldToNewVector.Size() - NetworkMaxSmoothUpdateDistance) * OldToNewVector.GetSafeNormal();
-					SetRelativeLocation(LastUpdatesRelativePosition + Offset);
-				}
-			}
-		}
-		else
-		{
-			SetRelativeLocationAndRotation(ReplicatedCameraTransform.Position, ReplicatedCameraTransform.Rotation);
-			bReppedOnce = true;
-		}
-	}
-	else
-		SetRelativeLocationAndRotation(ReplicatedCameraTransform.Position, ReplicatedCameraTransform.Rotation);
 }

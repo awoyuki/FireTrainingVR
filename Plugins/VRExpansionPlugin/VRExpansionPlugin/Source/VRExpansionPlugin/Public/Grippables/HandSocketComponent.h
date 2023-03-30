@@ -16,33 +16,9 @@
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimInstanceProxy.h"
 #include "Animation/PoseSnapshot.h"
-#include "Misc/Guid.h"
 #include "HandSocketComponent.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogVRHandSocketComponent, Log, All);
-
-// Custom serialization version for the hand socket component
-struct VREXPANSIONPLUGIN_API FVRHandSocketCustomVersion
-{
-	enum Type
-	{
-		// Before any version changes were made in the plugin
-		BeforeCustomVersionWasAdded = 0,
-
-		// Added a set state tracker to handle in editor construction edge cases
-		HandSocketStoringSetState = 1,
-
-		// -----<new versions can be added above this line>-------------------------------------------------
-		VersionPlusOne,
-		LatestVersion = VersionPlusOne - 1
-	};
-
-	// The GUID for this custom version number
-	const static FGuid GUID;
-
-private:
-	FVRHandSocketCustomVersion() {}
-};
 
 
 UENUM()
@@ -125,11 +101,6 @@ public:
 	// Will act like free gripping but the mesh will snap into position
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hand Socket Data")
 		bool bOnlySnapMesh;
-
-	// If true we will not create the mesh relative transform using the attach socket we are attached too
-	// Useful in cases where you aren't doing per bone gripping but want the socket to follow a bone that is animating
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hand Socket Data")
-		bool bIgnoreAttachBone;
 
 	// If true then this socket is left hand dominant and will flip for the right hand instead
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hand Socket Data")
@@ -323,10 +294,8 @@ public:
 	// Returns the target relative transform of the hand to the gripped object
 	// If you want the transform mirrored you need to pass in which hand is requesting the information
 	// If UseParentScale is true then we will scale the value by the parent scale (generally only for when not using absolute hand scale)
-	// If UseMirrorScale is true then we will mirror the scale on the hand by the hand sockets mirror scale when appropriate (not for fully body!)
-	// if UseMirrorScale is false than the resulting transform will not have mirroring scale added so you may have to break the transform.
 	UFUNCTION(BlueprintCallable, Category = "Hand Socket Data")
-	FTransform GetMeshRelativeTransform(bool bIsRightHand, bool bUseParentScale = false, bool bUseMirrorScale = false);
+	FTransform GetMeshRelativeTransform(bool bIsRightHand, bool bUseParentScale = false);
 
 	// Returns the defined hand socket component (if it exists, you need to valid check the return!
 	// If it is a valid return you can then cast to your projects base socket class and handle whatever logic you want
@@ -372,11 +341,7 @@ public:
 	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 	void PoseVisualizationToAnimation(bool bForceRefresh = false);
 	bool bTickedPose;
-
-	UPROPERTY()
-		bool bDecoupled;
 #endif
-	virtual void Serialize(FArchive& Ar) override;
 	virtual void OnRegister() override;
 	virtual void PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) override;
 
@@ -420,11 +385,6 @@ public:
 	// Show the visualization mirrored
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hand Visualization")
 		bool bMirrorVisualizationMesh;
-
-	// If we should show the grip range of this socket (shows text if always in range)
-	// If override distance is zero then it attempts to infer the value from the parent architecture
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hand Visualization")
-		bool bShowRangeVisualization;
 
 	void PositionVisualizationMesh();
 	void HideVisualizationMesh();
