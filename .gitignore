@@ -54,3 +54,11 @@
 /Plugins/VRExpansionPlugin/VRExpansionPlugin/Intermediate/Build/Win64/UE4Editor/Development/VRExpansionPlugin/*.lib
 /Plugins/AdvancedSessions/AdvancedSessions/Intermediate/Build/Win64/UE4Editor/Inc/AdvancedSessions/Timestamp
 /Plugins/AdvancedSessions/AdvancedSteamSessions/Intermediate/Build/Win64/UE4Editor/Inc/AdvancedSteamSessions/Timestamp
+/Content/Downtown_West
+/Content/EF_FirstFloor
+/Content/EF_Sam
+/Content/Materials
+/Content/Meshes
+/Content/Textures
+/Content/Fx
+/Content/Blueprints
